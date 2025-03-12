@@ -10,8 +10,7 @@
 #define MAX_EDGES 10
 #define API_URL "https://api.openai.com/v1/chat/completions"
 #define BUFFER_SIZE 4096
-#define OPENAI_API_KEY "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"
-
+#define OPENAI_API_KEY "use_ur_key"
 typedef struct {
     char node;
     char neighbors[MAX_NODES];
@@ -86,16 +85,22 @@ void generate_random_graph(Graph* graph, int num_nodes) {
     }
 }
 
-void print_graph(Graph* graph) {
+void print_graph(Graph* graph, char* file_location) {
+    FILE* file = (file_location != NULL) ? fopen(file_location, "w") : NULL; 
+    if (!file) ("Blad otwierania pliku");
+
     for (int i = 0; i < graph->node_count; i++) {
         printf("%c:", graph->nodes[i].node);
+        if (file) fprintf(file, "%c:", graph->nodes[i].node);
         for (int j = 0; j < graph->nodes[i].neighbor_count; j++) {
             printf(" %c", graph->nodes[i].neighbors[j]);
+            if (file) fprintf(file, " %c", graph->nodes[i].neighbors[j]);
         }
         printf("\n");
+        if (file) fprintf(file, "\n");
     }
+    if (file) fclose(file);
 }
-
 
 void ask_bot(const char* user_input, char* response, size_t response_size) {
     if (!user_input || strlen(user_input) == 0) {
@@ -110,7 +115,7 @@ void ask_bot(const char* user_input, char* response, size_t response_size) {
     chunk.size = 0;
 
     char full_prompt[BUFFER_SIZE];
-    snprintf(full_prompt, sizeof(full_prompt), "%s Na podstawie tego musisz stworzyc graf w formie listy sasiedztwa. Wypisz tylko ta liste. W odpowiedzi nie uzywaj polskich znakow prosze.", user_input);
+    snprintf(full_prompt, sizeof(full_prompt), "%s Na podstawie tego musisz stworzyc graf w formie listy sasiedztwa(Przyklad: A: B C B: A C i td) Wypisz tylko ta liste. W odpowiedzi nie uzywaj polskich znakow prosze.", user_input);
 
     json_t* root = json_object();
     json_object_set_new(root, "model", json_string("gpt-4o-mini"));
@@ -188,31 +193,48 @@ int main() {
     int choice, num_nodes;
     char response[BUFFER_SIZE] = "";
     char user_input[BUFFER_SIZE];
-
-    printf("Wybierz tryb:\n1 - Generowanie losowego grafu\n2 - Generowanie grafu z AI\nTwoj wybor: ");
+    char file_location[BUFFER_SIZE];
+    printf("\nPodaj sciezke do pliku tekstowego, w ktorym zostanie zapisany graf:\n");
+    fgets(file_location, BUFFER_SIZE, stdin);
+    file_location[strcspn(file_location, "\n")] = 0;
+    printf("\nWybierz tryb:\n1 - Generowanie losowego grafu\n2 - Generowanie grafu z AI\n\nTwoj wybor: ");
     scanf("%d", &choice);
     getchar();
 
     if (choice == 1) {
         printf("\nPodaj liczbe wierzcholkow: ");
         scanf("%d", &num_nodes);
+        getchar();
         if (num_nodes <= 0 || num_nodes > MAX_NODES) {
             printf("\nNieprawidlowa liczba wierzcholkow.\n");
             return 1;
         }
         generate_random_graph(&graph, num_nodes);
-        print_graph(&graph);
+        print_graph(&graph, file_location);
+        system("pause");
     }
     else if (choice == 2) {
+        FILE* file = (file_location != NULL) ? fopen(file_location, "w") : NULL;
         printf("\nWpisz polecenie:\n");
         fgets(user_input, BUFFER_SIZE, stdin);
         user_input[strcspn(user_input, "\n")] = 0;
         ask_bot(user_input, response, BUFFER_SIZE);
-        printf("\nOdpowiedz AI:\n\n%s\n", response);
+        if (!file) {
+            perror("\nBlad otwierania pliku\n");
+            printf("\nOdpowiedz AI:\n\n%s\n", response);
+        }
+        else {
+            printf("\nOdpowiedz AI:\n\n%s\n", response);
+            fprintf(file, "%s", response);
+            fclose(file);
+        }
+        system("pause");
     }
     else {
         printf("\nNieprawidlowy wybor.\n");
+        system("pause");
         return 1;
     }
     return 0;
 }
+
